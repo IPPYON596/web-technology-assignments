@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VIT &middot; Semester Result Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <div class="mark">
+      <span class="mark-glyph">VIT</span>
+      <span class="mark-text">Semester Result Portal</span>
+    </div>
+    <nav class="header-nav">
+      <button class="nav-link is-active" data-view="generate">Generate result</button>
+      <button class="nav-link" data-view="lookup">Look up a result</button>
+      <button class="nav-link" data-view="registry">All records</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============ HERO ============ -->
+  <section class="hero">
+    <div class="hero-inner">
+      <p class="hero-eyebrow">Mid-semester 30% &nbsp;+&nbsp; End-semester 70%</p>
+      <h1>Type in the marks.<br>Walk away with a grade card.</h1>
+      <p class="hero-sub">Enter a student's registration details and marks for four subjects. The portal weighs MSE and ESE automatically, assigns letter grades on the 10-point scale, and works out the semester SGPA &mdash; then keeps a record you can pull up again later.</p>
+    </div>
+  </section>
+
+  <!-- ============ GENERATE VIEW ============ -->
+  <section class="view" id="view-generate">
+
+    <div class="panel-grid">
+
+      <!-- Student + subject entry form -->
+      <form id="result-form" class="slip" novalidate>
+        <div class="slip-head">
+          <h2>Student details</h2>
+          <p class="slip-note">Fields marked with an asterisk are required.</p>
+        </div>
+
+        <div class="field-row">
+          <label>
+            Registration number *
+            <input type="text" name="regNo" placeholder="e.g. 21BCE1234" required>
+          </label>
+          <label>
+            Full name *
+            <input type="text" name="name" placeholder="e.g. Ananya Rao" required>
+          </label>
+        </div>
+
+        <div class="field-row">
+          <label>
+            Branch
+            <input type="text" name="branch" placeholder="e.g. Computer Science">
+          </label>
+          <label>
+            Semester
+            <input type="text" name="semester" placeholder="e.g. Semester 3">
+          </label>
+        </div>
+
+        <div class="slip-head slip-head--tight">
+          <h2>Subjects</h2>
+          <p class="slip-note">MSE is out of 50, ESE is out of 100. Exactly four subjects make up this result.</p>
+        </div>
+
+        <div class="subject-table" id="subject-table">
+          <div class="subject-table-head">
+            <span>#</span>
+            <span>Subject code</span>
+            <span>Subject name</span>
+            <span>Credit</span>
+            <span>MSE / 50</span>
+            <span>ESE / 100</span>
+          </div>
+          <!-- 4 subject rows injected by script.js -->
+        </div>
+
+        <div class="slip-actions">
+          <span class="form-error" id="form-error"></span>
+          <button type="submit" class="btn btn-primary">Generate result</button>
+        </div>
+      </form>
+
+      <!-- Result / grade card -->
+      <div class="card-slot">
+        <div class="grade-card is-empty" id="grade-card">
+          <p class="empty-state">Your grade card will appear here once you generate a result.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ LOOKUP VIEW ============ -->
+  <section class="view is-hidden" id="view-lookup">
+    <div class="panel-grid panel-grid--single">
+      <form id="lookup-form" class="slip slip--compact">
+        <div class="slip-head">
+          <h2>Look up a result</h2>
+          <p class="slip-note">Search by the student's registration number to see every result on file.</p>
+        </div>
+        <div class="field-row">
+          <label class="grow">
+            Registration number
+            <input type="text" id="lookup-regno" placeholder="e.g. 21BCE1234" required>
+          </label>
+          <button type="submit" class="btn btn-primary lookup-btn">Search</button>
+        </div>
+        <span class="form-error" id="lookup-error"></span>
+      </form>
+
+      <div id="lookup-results" class="lookup-results"></div>
+    </div>
+  </section>
+
+  <!-- ============ REGISTRY VIEW ============ -->
+  <section class="view is-hidden" id="view-registry">
+    <div class="registry-head">
+      <h2>All records</h2>
+      <p class="slip-note">Every result generated on this portal, most recent first.</p>
+    </div>
+    <div class="registry-table-wrap">
+      <table class="registry-table" id="registry-table">
+        <thead>
+          <tr>
+            <th>Reg. no.</th>
+            <th>Name</th>
+            <th>Branch</th>
+            <th>Semester</th>
+            <th>SGPA</th>
+            <th>Grade</th>
+            <th>Generated on</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="registry-body"></tbody>
+      </table>
+      <p class="empty-state is-hidden" id="registry-empty">No results have been generated yet.</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <p>Built for one semester &middot; four subjects &middot; MSE weighted 30%, ESE weighted 70%</p>
+</footer>
+
+<!-- Detail modal for a single result, reused by lookup & registry views -->
+<div class="modal-backdrop is-hidden" id="modal-backdrop">
+  <div class="modal">
+    <button class="modal-close" id="modal-close" aria-label="Close">&times;</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script src="js/script.js"></script>
+</body>
+</html>
