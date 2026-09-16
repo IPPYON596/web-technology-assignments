@@ -1,0 +1,54 @@
+<%- include('partials/header') %>
+
+<section class="hero">
+  <div class="container">
+    <h1>Find your next favorite book</h1>
+    <p>Thousands of titles across every genre — bestsellers, new arrivals, and rare finds, delivered to your door.</p>
+    <form class="search-bar" action="/catalogue" method="GET" role="search">
+      <label for="heroSearch" class="visually-hidden">Search books</label>
+      <input id="heroSearch" name="search" type="search" placeholder="Search by title, author, or ISBN...">
+      <button class="btn btn-primary" type="submit">Search</button>
+    </form>
+  </div>
+</section>
+
+<section class="section container">
+  <div class="section-title"><h2>Browse Categories</h2></div>
+  <div class="category-scroll">
+    <% categories.forEach(cat => { %>
+      <a class="category-chip" href="/catalogue?category=<%= cat._id %>"><%= cat.name %></a>
+    <% }) %>
+  </div>
+</section>
+
+<section class="section container">
+  <div class="section-title">
+    <h2>Featured Books</h2>
+    <a href="/catalogue" class="btn btn-outline btn-sm">View All</a>
+  </div>
+  <div class="book-grid">
+    <% featured.forEach(book => { %>
+      <%- include('partials/book-card', { book }) %>
+    <% }) %>
+    <% if (featured.length === 0) { %>
+      <p class="text-muted">No featured books yet — check back soon!</p>
+    <% } %>
+  </div>
+</section>
+
+<section class="section container">
+  <div class="section-title">
+    <h2>Bestsellers</h2>
+    <a href="/catalogue?sort=popularity" class="btn btn-outline btn-sm">View All</a>
+  </div>
+  <div class="book-grid">
+    <% bestsellers.forEach(book => { %>
+      <%- include('partials/book-card', { book }) %>
+    <% }) %>
+    <% if (bestsellers.length === 0) { %>
+      <p class="text-muted">No bestsellers yet — check back soon!</p>
+    <% } %>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
