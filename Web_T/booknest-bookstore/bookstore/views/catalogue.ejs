@@ -1,0 +1,174 @@
+<%- include('partials/header') %>
+<div class="container section">
+  <h1>Book Catalogue</h1>
+
+  <form id="filterForm" class="search-bar mb-2" role="search" style="max-width:none;">
+    <label for="search" class="visually-hidden">Search books</label>
+    <input class="form-control" id="search" type="search" placeholder="Search by title, author, or ISBN...">
+    <button class="btn btn-primary" type="submit">Search</button>
+  </form>
+
+  <div class="catalogue-layout">
+    <aside class="filters-panel">
+      <h3>Filters</h3>
+      <div class="filter-group">
+        <label for="categoryFilter">Category</label>
+        <select class="form-control" id="categoryFilter">
+          <option value="">All Categories</option>
+          <% categories.forEach(cat => { %>
+            <option value="<%= cat._id %>"><%= cat.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Price Range</label>
+        <div class="d-flex gap-1">
+          <input class="form-control" id="minPrice" type="number" min="0" placeholder="Min">
+          <input class="form-control" id="maxPrice" type="number" min="0" placeholder="Max">
+        </div>
+      </div>
+      <div class="filter-group">
+        <label for="ratingFilter">Minimum Rating</label>
+        <select class="form-control" id="ratingFilter">
+          <option value="">Any</option>
+          <option value="4">4★ &amp; up</option>
+          <option value="3">3★ &amp; up</option>
+          <option value="2">2★ &amp; up</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="form-check"><input type="checkbox" id="inStockFilter"> In stock only</label>
+      </div>
+      <button class="btn btn-outline btn-block" id="clearFiltersBtn" type="button">Clear Filters</button>
+    </aside>
+
+    <div>
+      <div class="toolbar">
+        <span id="resultCount" class="text-muted"></span>
+        <div class="d-flex gap-1 align-center">
+          <label for="sortSelect" class="visually-hidden">Sort by</label>
+          <select class="form-control" id="sortSelect">
+            <option value="newest">Newest</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
+            <option value="popularity">Popularity</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="bookGrid" class="book-grid"></div>
+      <div id="emptyState" class="empty-state" style="display:none;">
+        <p>No books matched your search. Try adjusting your filters.</p>
+      </div>
+      <div id="pagination" class="pagination"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const grid = document.getElementById('bookGrid');
+  const emptyState = document.getElementById('emptyState');
+  const pagination = document.getElementById('pagination');
+  const resultCount = document.getElementById('resultCount');
+
+  const params = new URLSearchParams(window.location.search);
+  document.getElementById('search').value = params.get('search') || '';
+  if (params.get('category')) document.getElementById('categoryFilter').value = params.get('category');
+  if (params.get('sort')) document.getElementById('sortSelect').value = params.get('sort');
+
+  let currentPage = 1;
+
+  function bookCardHtml(book) {
+    const rating = Math.round(book.rating || 0);
+    return `
+      <article class="book-card">
+        <a href="/books/${book._id}" class="book-card-cover">
+          <img src="${book.coverImage}" alt="Cover of ${escapeHtml(book.title)}" loading="lazy">
+        </a>
+        <div class="book-card-body">
+          <a href="/books/${book._id}" class="book-card-title">${escapeHtml(book.title)}</a>
+          <div class="book-card-author">${escapeHtml(book.author)}${book.pages ? ` · ${book.pages} pages` : ''}</div>
+          <div class="book-card-rating">${stars(book.rating)} <span class="text-muted">(${book.ratingsCount || 0})</span></div>
+          <span class="stock-badge ${book.stock > 0 ? 'in' : 'out'}">${book.stock > 0 ? 'In Stock' : 'Out of Stock'}</span>
+          <div class="book-card-price">${money(book.price)}</div>
+          <div class="book-card-actions">
+            <a href="/books/${book._id}" class="btn btn-outline btn-sm">View</a>
+            <button class="btn btn-primary btn-sm add-to-cart-btn" data-book-id="${book._id}" ${book.stock <= 0 ? 'disabled' : ''}>Add</button>
+          </div>
+        </div>
+      </article>`;
+  }
+
+  async function loadBooks(page = 1) {
+    currentPage = page;
+    grid.innerHTML = '<div class="skeleton" style="height:280px;"></div>'.repeat(8);
+    emptyState.style.display = 'none';
+
+    const query = new URLSearchParams();
+    const search = document.getElementById('search').value.trim();
+    const category = document.getElementById('categoryFilter').value;
+    const minPrice = document.getElementById('minPrice').value;
+    const maxPrice = document.getElementById('maxPrice').value;
+    const rating = document.getElementById('ratingFilter').value;
+    const inStock = document.getElementById('inStockFilter').checked;
+    const sort = document.getElementById('sortSelect').value;
+
+    if (search) query.set('search', search);
+    if (category) query.set('category', category);
+    if (minPrice) query.set('minPrice', minPrice);
+    if (maxPrice) query.set('maxPrice', maxPrice);
+    if (rating) query.set('rating', rating);
+    if (inStock) query.set('inStock', 'true');
+    query.set('sort', sort);
+    query.set('page', page);
+    query.set('limit', 12);
+
+    try {
+      const res = await api.get(`/api/books?${query.toString()}`);
+      resultCount.textContent = `${res.total} book${res.total !== 1 ? 's' : ''} found`;
+      if (res.data.length === 0) {
+        grid.innerHTML = '';
+        emptyState.style.display = 'block';
+      } else {
+        grid.innerHTML = res.data.map(bookCardHtml).join('');
+      }
+      renderPagination(res.currentPage, res.totalPages);
+    } catch (err) {
+      grid.innerHTML = '';
+      toast(err.message, 'error');
+    }
+  }
+
+  function renderPagination(current, total) {
+    pagination.innerHTML = '';
+    if (total <= 1) return;
+    for (let i = 1; i <= total; i++) {
+      const btn = document.createElement('button');
+      btn.textContent = i;
+      if (i === current) btn.classList.add('active');
+      btn.addEventListener('click', () => { loadBooks(i); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+      pagination.appendChild(btn);
+    }
+  }
+
+  document.getElementById('filterForm').addEventListener('submit', (e) => { e.preventDefault(); loadBooks(1); });
+  ['categoryFilter', 'ratingFilter', 'sortSelect'].forEach(id =>
+    document.getElementById(id).addEventListener('change', () => loadBooks(1))
+  );
+  document.getElementById('inStockFilter').addEventListener('change', () => loadBooks(1));
+  document.getElementById('minPrice').addEventListener('change', () => loadBooks(1));
+  document.getElementById('maxPrice').addEventListener('change', () => loadBooks(1));
+  document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+    document.getElementById('search').value = '';
+    document.getElementById('categoryFilter').value = '';
+    document.getElementById('minPrice').value = '';
+    document.getElementById('maxPrice').value = '';
+    document.getElementById('ratingFilter').value = '';
+    document.getElementById('inStockFilter').checked = false;
+    document.getElementById('sortSelect').value = 'newest';
+    loadBooks(1);
+  });
+
+  loadBooks(1);
+</script>
+<%- include('partials/footer') %>

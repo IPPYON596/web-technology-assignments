@@ -1,0 +1,81 @@
+<%- include('partials/header') %>
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <h1 class="text-center">Create an Account</h1>
+    <p class="text-muted text-center mb-2">Join BookNest to track orders and save favorites.</p>
+    <div id="formAlert"></div>
+    <form id="registerForm" novalidate>
+      <div class="form-group">
+        <label for="name">Full Name</label>
+        <input class="form-control" type="text" id="name" name="name" required autocomplete="name">
+        <div class="form-error" id="nameError"></div>
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input class="form-control" type="email" id="email" name="email" required autocomplete="email">
+        <div class="form-error" id="emailError"></div>
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input class="form-control" type="password" id="password" name="password" required minlength="8" autocomplete="new-password">
+        <div class="form-hint">At least 8 characters, with a letter and a number.</div>
+        <div class="form-error" id="passwordError"></div>
+      </div>
+      <div class="form-group">
+        <label for="confirmPassword">Confirm Password</label>
+        <input class="form-control" type="password" id="confirmPassword" name="confirmPassword" required autocomplete="new-password">
+        <div class="form-error" id="confirmPasswordError"></div>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit" id="submitBtn">Create Account</button>
+    </form>
+    <p class="text-center mt-2">Already have an account? <a href="/login">Login</a></p>
+  </div>
+</div>
+
+<script>
+  const form = document.getElementById('registerForm');
+  const alertBox = document.getElementById('formAlert');
+
+  function clearErrors() {
+    ['name', 'email', 'password', 'confirmPassword'].forEach(f => {
+      document.getElementById(f + 'Error').textContent = '';
+    });
+    alertBox.innerHTML = '';
+  }
+
+  function validate({ name, email, password, confirmPassword }) {
+    let valid = true;
+    if (!name.trim()) { document.getElementById('nameError').textContent = 'Full name is required.'; valid = false; }
+    if (!/^[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}$/.test(email)) { document.getElementById('emailError').textContent = 'Enter a valid email address.'; valid = false; }
+    if (password.length < 8 || !/\d/.test(password) || !/[A-Za-z]/.test(password)) {
+      document.getElementById('passwordError').textContent = 'Password needs 8+ chars, a letter and a number.'; valid = false;
+    }
+    if (password !== confirmPassword) { document.getElementById('confirmPasswordError').textContent = 'Passwords do not match.'; valid = false; }
+    return valid;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearErrors();
+    const payload = {
+      name: document.getElementById('name').value,
+      email: document.getElementById('email').value,
+      password: document.getElementById('password').value,
+      confirmPassword: document.getElementById('confirmPassword').value,
+    };
+    if (!validate(payload)) return;
+
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating account...';
+    try {
+      await api.post('/api/auth/register', payload);
+      window.location.href = '/';
+    } catch (err) {
+      alertBox.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Create Account';
+    }
+  });
+</script>
+<%- include('partials/footer') %>

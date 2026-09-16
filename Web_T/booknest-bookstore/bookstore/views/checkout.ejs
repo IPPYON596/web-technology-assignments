@@ -1,0 +1,96 @@
+<%- include('partials/header') %>
+<div class="container section">
+  <h1>Checkout</h1>
+  <div style="display:grid; grid-template-columns:1fr; gap:24px;" class="checkout-grid">
+    <div>
+      <h3>Shipping Address</h3>
+      <div id="formAlert"></div>
+      <form id="checkoutForm">
+        <div class="form-group">
+          <label for="line1">Address Line</label>
+          <input class="form-control" id="line1" required>
+        </div>
+        <div class="form-group">
+          <label for="city">City</label>
+          <input class="form-control" id="city" required>
+        </div>
+        <div class="form-group">
+          <label for="state">State / Province</label>
+          <input class="form-control" id="state" required>
+        </div>
+        <div class="form-group">
+          <label for="postalCode">Postal Code</label>
+          <input class="form-control" id="postalCode" required>
+        </div>
+        <div class="form-group">
+          <label for="country">Country</label>
+          <input class="form-control" id="country" required value="United States">
+        </div>
+        <div class="form-group">
+          <label for="paymentMethod">Payment Method (simulated)</label>
+          <select class="form-control" id="paymentMethod">
+            <option value="card">Credit / Debit Card</option>
+            <option value="upi">UPI</option>
+            <option value="cod">Cash on Delivery</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-block" id="placeOrderBtn" type="submit">Place Order</button>
+      </form>
+    </div>
+    <div>
+      <h3>Order Summary</h3>
+      <div id="orderSummary"><div class="skeleton" style="height:150px;"></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const summaryEl = document.getElementById('orderSummary');
+  const alertBox = document.getElementById('formAlert');
+
+  async function loadSummary() {
+    try {
+      const res = await api.get('/api/cart');
+      const items = res.data.items.filter(i => i.book);
+      if (items.length === 0) {
+        summaryEl.innerHTML = `<p class="text-muted">Your cart is empty. <a href="/catalogue">Browse books</a>.</p>`;
+        document.getElementById('placeOrderBtn').disabled = true;
+        return;
+      }
+      summaryEl.innerHTML = `
+        <div class="cart-summary" style="margin-top:0;">
+          ${items.map(i => `<div class="summary-row"><span>${escapeHtml(i.book.title)} × ${i.quantity}</span><span>${money(i.book.price * i.quantity)}</span></div>`).join('')}
+          <div class="summary-row total"><span>Total</span><span>${money(res.total)}</span></div>
+        </div>`;
+    } catch (err) {
+      summaryEl.innerHTML = `<p class="text-muted">${escapeHtml(err.message)}</p>`;
+    }
+  }
+  loadSummary();
+
+  document.getElementById('checkoutForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    alertBox.innerHTML = '';
+    const shippingAddress = {
+      line1: document.getElementById('line1').value,
+      city: document.getElementById('city').value,
+      state: document.getElementById('state').value,
+      postalCode: document.getElementById('postalCode').value,
+      country: document.getElementById('country').value,
+    };
+    const paymentMethod = document.getElementById('paymentMethod').value;
+    const btn = document.getElementById('placeOrderBtn');
+    btn.disabled = true;
+    btn.textContent = 'Placing order...';
+    try {
+      const res = await api.post('/api/orders', { shippingAddress, paymentMethod });
+      window.location.href = `/profile?order=${res.data._id}`;
+    } catch (err) {
+      alertBox.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
+      btn.disabled = false;
+      btn.textContent = 'Place Order';
+    }
+  });
+</script>
+<style>@media (min-width: 800px) { .checkout-grid { grid-template-columns: 1.4fr 1fr !important; } }</style>
+<%- include('partials/footer') %>

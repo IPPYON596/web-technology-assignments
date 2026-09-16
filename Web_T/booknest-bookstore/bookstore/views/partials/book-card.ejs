@@ -1,0 +1,16 @@
+<article class="book-card">
+  <a href="/books/<%= book._id %>" class="book-card-cover">
+    <img src="<%= book.coverImage %>" alt="Cover of <%= book.title %>" loading="lazy">
+  </a>
+  <div class="book-card-body">
+    <a href="/books/<%= book._id %>" class="book-card-title"><%= book.title %></a>
+    <div class="book-card-author"><%= book.author %><% if (book.pages) { %> · <%= book.pages %> pages<% } %></div>
+    <div class="book-card-rating"><%= '★'.repeat(Math.round(book.rating || 0)) %><%= '☆'.repeat(5 - Math.round(book.rating || 0)) %> <span class="text-muted">(<%= book.ratingsCount || 0 %>)</span></div>
+    <span class="stock-badge <%= book.stock > 0 ? 'in' : 'out' %>"><%= book.stock > 0 ? 'In Stock' : 'Out of Stock' %></span>
+    <div class="book-card-price">$<%= book.price.toFixed(2) %></div>
+    <div class="book-card-actions">
+      <a href="/books/<%= book._id %>" class="btn btn-outline btn-sm">View</a>
+      <button class="btn btn-primary btn-sm add-to-cart-btn" data-book-id="<%= book._id %>" <%= book.stock <= 0 ? 'disabled' : '' %>>Add</button>
+    </div>
+  </div>
+</article>

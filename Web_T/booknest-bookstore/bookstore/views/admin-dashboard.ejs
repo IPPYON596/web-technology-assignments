@@ -1,0 +1,245 @@
+<%- include('partials/header') %>
+<div class="container section">
+  <h1>Admin Dashboard</h1>
+
+  <div class="stat-cards" id="statCards">
+    <div class="stat-card"><div class="value" id="statBooks">–</div><div class="label">Books</div></div>
+    <div class="stat-card"><div class="value" id="statUsers">–</div><div class="label">Customers</div></div>
+    <div class="stat-card"><div class="value" id="statOrders">–</div><div class="label">Orders</div></div>
+    <div class="stat-card"><div class="value" id="statRevenue">–</div><div class="label">Revenue</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="books">Books</button>
+    <button class="tab-btn" data-tab="categories">Categories</button>
+    <button class="tab-btn" data-tab="orders">Orders</button>
+    <button class="tab-btn" data-tab="users">Users</button>
+  </div>
+
+  <div id="panel-books">
+    <div class="toolbar"><span></span><button class="btn btn-primary btn-sm" id="newBookBtn">+ Add Book</button></div>
+    <div class="table-scroll"><table class="data-table">
+      <thead><tr><th>Title</th><th>Author</th><th>Category</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead>
+      <tbody id="booksTableBody"></tbody>
+    </table></div>
+  </div>
+
+  <div id="panel-categories" style="display:none;">
+    <div class="toolbar"><span></span><button class="btn btn-primary btn-sm" id="newCategoryBtn">+ Add Category</button></div>
+    <div class="table-scroll"><table class="data-table">
+      <thead><tr><th>Name</th><th>Slug</th><th>Description</th><th>Actions</th></tr></thead>
+      <tbody id="categoriesTableBody"></tbody>
+    </table></div>
+  </div>
+
+  <div id="panel-orders" style="display:none;">
+    <div class="table-scroll"><table class="data-table">
+      <thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Total</th><th>Status</th></tr></thead>
+      <tbody id="ordersTableBody"></tbody>
+    </table></div>
+  </div>
+
+  <div id="panel-users" style="display:none;">
+    <div class="table-scroll"><table class="data-table">
+      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody id="usersTableBody"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<script>
+  const backdrop = document.getElementById('modalBackdrop');
+  const modal = document.getElementById('modalContent');
+  function closeModal() { backdrop.classList.remove('open'); modal.innerHTML = ''; }
+  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeModal(); });
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      ['books', 'categories', 'orders', 'users'].forEach(t =>
+        document.getElementById('panel-' + t).style.display = t === btn.dataset.tab ? 'block' : 'none'
+      );
+    });
+  });
+
+  let categoriesCache = [];
+
+  async function loadSummary() {
+    try {
+      const { data } = await api.get('/api/admin/summary');
+      document.getElementById('statBooks').textContent = data.bookCount;
+      document.getElementById('statUsers').textContent = data.userCount;
+      document.getElementById('statOrders').textContent = data.orderCount;
+      document.getElementById('statRevenue').textContent = money(data.totalRevenue);
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  async function loadCategories() {
+    const { data } = await api.get('/api/books/categories');
+    categoriesCache = data;
+    document.getElementById('categoriesTableBody').innerHTML = data.map(c => `
+      <tr>
+        <td>${escapeHtml(c.name)}</td>
+        <td>${escapeHtml(c.slug)}</td>
+        <td>${escapeHtml(c.description || '—')}</td>
+        <td><button class="btn btn-outline btn-sm edit-category" data-id="${c._id}">Edit</button>
+            <button class="btn btn-danger btn-sm delete-category" data-id="${c._id}">Delete</button></td>
+      </tr>`).join('') || '<tr><td colspan="4" class="text-muted">No categories yet.</td></tr>';
+
+    document.querySelectorAll('.delete-category').forEach(b => b.addEventListener('click', async () => {
+      if (!confirm('Delete this category?')) return;
+      try { await api.delete(`/api/admin/categories/${b.dataset.id}`); toast('Category deleted'); loadCategories(); }
+      catch (err) { toast(err.message, 'error'); }
+    }));
+    document.querySelectorAll('.edit-category').forEach(b => b.addEventListener('click', () => {
+      const cat = data.find(c => c._id === b.dataset.id);
+      openCategoryModal(cat);
+    }));
+  }
+
+  function openCategoryModal(cat) {
+    modal.innerHTML = `
+      <h3>${cat ? 'Edit' : 'Add'} Category</h3>
+      <form id="categoryForm">
+        <div class="form-group"><label>Name</label><input class="form-control" id="catName" value="${cat ? escapeHtml(cat.name) : ''}" required></div>
+        <div class="form-group"><label>Slug</label><input class="form-control" id="catSlug" value="${cat ? escapeHtml(cat.slug) : ''}" required></div>
+        <div class="form-group"><label>Description</label><textarea class="form-control" id="catDesc" rows="2">${cat ? escapeHtml(cat.description || '') : ''}</textarea></div>
+        <div class="d-flex gap-1"><button class="btn btn-primary" type="submit">Save</button><button class="btn btn-outline" type="button" id="cancelModal">Cancel</button></div>
+      </form>`;
+    backdrop.classList.add('open');
+    document.getElementById('cancelModal').addEventListener('click', closeModal);
+    document.getElementById('categoryForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = { name: document.getElementById('catName').value, slug: document.getElementById('catSlug').value, description: document.getElementById('catDesc').value };
+      try {
+        if (cat) await api.put(`/api/admin/categories/${cat._id}`, payload);
+        else await api.post('/api/admin/categories', payload);
+        toast('Category saved'); closeModal(); loadCategories();
+      } catch (err) { toast(err.message, 'error'); }
+    });
+  }
+  document.getElementById('newCategoryBtn').addEventListener('click', () => openCategoryModal(null));
+
+  async function loadBooks() {
+    const { data } = await api.get('/api/admin/books');
+    document.getElementById('booksTableBody').innerHTML = data.map(b => `
+      <tr>
+        <td>${escapeHtml(b.title)}</td>
+        <td>${escapeHtml(b.author)}</td>
+        <td>${escapeHtml(b.category?.name || '—')}</td>
+        <td>${money(b.price)}</td>
+        <td>${b.stock}</td>
+        <td><button class="btn btn-outline btn-sm edit-book" data-id="${b._id}">Edit</button>
+            <button class="btn btn-danger btn-sm delete-book" data-id="${b._id}">Delete</button></td>
+      </tr>`).join('') || '<tr><td colspan="6" class="text-muted">No books yet.</td></tr>';
+
+    document.querySelectorAll('.delete-book').forEach(b => b.addEventListener('click', async () => {
+      if (!confirm('Delete this book?')) return;
+      try { await api.delete(`/api/admin/books/${b.dataset.id}`); toast('Book deleted'); loadBooks(); }
+      catch (err) { toast(err.message, 'error'); }
+    }));
+    document.querySelectorAll('.edit-book').forEach(b => b.addEventListener('click', () => {
+      const book = data.find(x => x._id === b.dataset.id);
+      openBookModal(book);
+    }));
+  }
+
+  function categoryOptions(selectedId) {
+    return categoriesCache.map(c => `<option value="${c._id}" ${c._id === selectedId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('');
+  }
+
+  function openBookModal(book) {
+    modal.innerHTML = `
+      <h3>${book ? 'Edit' : 'Add'} Book</h3>
+      <form id="bookForm">
+        <div class="form-group"><label>Title</label><input class="form-control" id="bTitle" value="${book ? escapeHtml(book.title) : ''}" required></div>
+        <div class="form-group"><label>Author</label><input class="form-control" id="bAuthor" value="${book ? escapeHtml(book.author) : ''}" required></div>
+        <div class="form-group"><label>ISBN</label><input class="form-control" id="bIsbn" value="${book ? escapeHtml(book.isbn) : ''}" required></div>
+        <div class="form-group"><label>Category</label><select class="form-control" id="bCategory" required>${categoryOptions(book?.category?._id)}</select></div>
+        <div class="form-group"><label>Price</label><input class="form-control" type="number" step="0.01" min="0" id="bPrice" value="${book ? book.price : ''}" required></div>
+        <div class="form-group"><label>Stock</label><input class="form-control" type="number" min="0" id="bStock" value="${book ? book.stock : 0}" required></div>
+        <div class="form-group"><label>Cover Image URL</label><input class="form-control" id="bCover" value="${book ? escapeHtml(book.coverImage) : ''}" placeholder="/images/book-placeholder.svg"></div>
+        <div class="form-group"><label>Description</label><textarea class="form-control" id="bDesc" rows="3">${book ? escapeHtml(book.description || '') : ''}</textarea></div>
+        <div class="d-flex gap-1">
+          <label class="form-check"><input type="checkbox" id="bFeatured" ${book?.isFeatured ? 'checked' : ''}> Featured</label>
+          <label class="form-check"><input type="checkbox" id="bBestseller" ${book?.isBestseller ? 'checked' : ''}> Bestseller</label>
+        </div>
+        <div class="d-flex gap-1 mt-2"><button class="btn btn-primary" type="submit">Save</button><button class="btn btn-outline" type="button" id="cancelModal">Cancel</button></div>
+      </form>`;
+    backdrop.classList.add('open');
+    document.getElementById('cancelModal').addEventListener('click', closeModal);
+    document.getElementById('bookForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        title: document.getElementById('bTitle').value,
+        author: document.getElementById('bAuthor').value,
+        isbn: document.getElementById('bIsbn').value,
+        category: document.getElementById('bCategory').value,
+        price: Number(document.getElementById('bPrice').value),
+        stock: Number(document.getElementById('bStock').value),
+        coverImage: document.getElementById('bCover').value || undefined,
+        description: document.getElementById('bDesc').value,
+        isFeatured: document.getElementById('bFeatured').checked,
+        isBestseller: document.getElementById('bBestseller').checked,
+      };
+      try {
+        if (book) await api.put(`/api/admin/books/${book._id}`, payload);
+        else await api.post('/api/admin/books', payload);
+        toast('Book saved'); closeModal(); loadBooks();
+      } catch (err) { toast(err.message, 'error'); }
+    });
+  }
+  document.getElementById('newBookBtn').addEventListener('click', () => openBookModal(null));
+
+  async function loadOrders() {
+    const { data } = await api.get('/api/admin/orders');
+    document.getElementById('ordersTableBody').innerHTML = data.map(o => `
+      <tr>
+        <td>#${o._id.slice(-6).toUpperCase()}</td>
+        <td>${escapeHtml(o.user?.name || 'Unknown')}</td>
+        <td>${new Date(o.createdAt).toLocaleDateString()}</td>
+        <td>${money(o.totalAmount)}</td>
+        <td>
+          <select class="form-control order-status" data-id="${o._id}" style="min-height:32px; padding:4px;">
+            ${['pending','paid','shipped','delivered','cancelled'].map(s => `<option value="${s}" ${s === o.status ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </td>
+      </tr>`).join('') || '<tr><td colspan="5" class="text-muted">No orders yet.</td></tr>';
+
+    document.querySelectorAll('.order-status').forEach(sel => sel.addEventListener('change', async () => {
+      try { await api.put(`/api/admin/orders/${sel.dataset.id}/status`, { status: sel.value }); toast('Order status updated'); }
+      catch (err) { toast(err.message, 'error'); }
+    }));
+  }
+
+  async function loadUsers() {
+    const { data } = await api.get('/api/admin/users');
+    document.getElementById('usersTableBody').innerHTML = data.map(u => `
+      <tr>
+        <td>${escapeHtml(u.name)}</td>
+        <td>${escapeHtml(u.email)}</td>
+        <td>${u.role}</td>
+        <td>${u.isActive ? '<span class="badge badge-paid">Active</span>' : '<span class="badge badge-cancelled">Disabled</span>'}</td>
+        <td>${u.role !== 'admin' ? `<button class="btn btn-outline btn-sm toggle-user" data-id="${u._id}">${u.isActive ? 'Disable' : 'Enable'}</button>` : '—'}</td>
+      </tr>`).join('');
+
+    document.querySelectorAll('.toggle-user').forEach(b => b.addEventListener('click', async () => {
+      try { await api.put(`/api/admin/users/${b.dataset.id}/toggle-active`); toast('User updated'); loadUsers(); }
+      catch (err) { toast(err.message, 'error'); }
+    }));
+  }
+
+  (async function init() {
+    await loadSummary();
+    await loadCategories();
+    await loadBooks();
+    await loadOrders();
+    await loadUsers();
+  })();
+</script>
+<%- include('partials/footer') %>

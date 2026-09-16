@@ -1,0 +1,72 @@
+<%- include('partials/header') %>
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <h1 class="text-center">Welcome Back</h1>
+    <p class="text-muted text-center mb-2">Login to continue shopping.</p>
+    <div id="formAlert"></div>
+    <form id="loginForm" novalidate>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input class="form-control" type="email" id="email" name="email" required autocomplete="email">
+        <div class="form-error" id="emailError"></div>
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input class="form-control" type="password" id="password" name="password" required autocomplete="current-password">
+        <div class="form-error" id="passwordError"></div>
+      </div>
+      <div class="d-flex justify-between align-center mb-2">
+        <label class="form-check">
+          <input type="checkbox" id="rememberMe" name="rememberMe"> Remember Me
+        </label>
+        <a href="#" id="forgotPasswordLink" class="text-muted" style="font-size:.85rem;">Forgot Password?</a>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit" id="submitBtn">Login</button>
+    </form>
+    <p class="text-center mt-2">Don't have an account? <a href="/register">Register</a></p>
+  </div>
+</div>
+
+<script>
+  const form = document.getElementById('loginForm');
+  const alertBox = document.getElementById('formAlert');
+  const redirectTo = <%- JSON.stringify(redirect || '/') %>;
+
+  document.getElementById('forgotPasswordLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    toast('Password reset via email is not enabled in this demo. Contact an admin to reset your password.', 'error');
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    alertBox.innerHTML = '';
+    document.getElementById('emailError').textContent = '';
+    document.getElementById('passwordError').textContent = '';
+
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const rememberMe = document.getElementById('rememberMe').checked;
+
+    if (!/^[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}$/.test(email)) {
+      document.getElementById('emailError').textContent = 'Enter a valid email address.';
+      return;
+    }
+    if (!password) {
+      document.getElementById('passwordError').textContent = 'Password is required.';
+      return;
+    }
+
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Logging in...';
+    try {
+      await api.post('/api/auth/login', { email, password, rememberMe });
+      window.location.href = redirectTo;
+    } catch (err) {
+      alertBox.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Login';
+    }
+  });
+</script>
+<%- include('partials/footer') %>

@@ -1,0 +1,88 @@
+<%- include('partials/header') %>
+<div class="container section">
+  <h1>My Profile</h1>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="details">Profile Details</button>
+    <button class="tab-btn" data-tab="orders">Order History</button>
+  </div>
+
+  <div id="tab-details">
+    <div id="formAlert"></div>
+    <form id="profileForm" style="max-width:480px;">
+      <div class="form-group">
+        <label for="name">Full Name</label>
+        <input class="form-control" id="name" value="<%= user.name %>" required>
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input class="form-control" id="email" value="<%= user.email %>" disabled>
+        <div class="form-hint">Email cannot be changed in this demo.</div>
+      </div>
+      <div class="form-group">
+        <label for="phone">Phone</label>
+        <input class="form-control" id="phone" value="<%= user.phone || '' %>">
+      </div>
+      <button class="btn btn-primary" type="submit">Save Changes</button>
+    </form>
+  </div>
+
+  <div id="tab-orders" style="display:none;">
+    <div id="ordersList"><div class="skeleton" style="height:100px;"></div></div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-details').style.display = btn.dataset.tab === 'details' ? 'block' : 'none';
+      document.getElementById('tab-orders').style.display = btn.dataset.tab === 'orders' ? 'block' : 'none';
+      if (btn.dataset.tab === 'orders') loadOrders();
+    });
+  });
+
+  document.getElementById('profileForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    // Profile-field editing endpoint intentionally not wired to the API in this demo;
+    // name/phone updates would PATCH /api/users/me on a production build.
+    toast('Profile changes are simulated in this demo.');
+  });
+
+  function statusBadge(status) {
+    return `<span class="badge badge-${status}">${status}</span>`;
+  }
+
+  async function loadOrders() {
+    const list = document.getElementById('ordersList');
+    try {
+      const res = await api.get('/api/orders');
+      if (res.data.length === 0) {
+        list.innerHTML = `<p class="text-muted">You haven't placed any orders yet.</p>`;
+        return;
+      }
+      list.innerHTML = `<div class="table-scroll"><table class="data-table">
+        <thead><tr><th>Order ID</th><th>Date</th><th>Items</th><th>Total</th><th>Status</th></tr></thead>
+        <tbody>
+          ${res.data.map(o => `
+            <tr>
+              <td>#${o._id.slice(-6).toUpperCase()}</td>
+              <td>${new Date(o.createdAt).toLocaleDateString()}</td>
+              <td>${o.items.reduce((s, i) => s + i.quantity, 0)} item(s)</td>
+              <td>${money(o.totalAmount)}</td>
+              <td>${statusBadge(o.status)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table></div>`;
+    } catch (err) {
+      list.innerHTML = `<p class="text-muted">${escapeHtml(err.message)}</p>`;
+    }
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('order')) {
+    document.querySelector('.tab-btn[data-tab="orders"]').click();
+    toast('Order placed successfully!');
+  }
+</script>
+<%- include('partials/footer') %>
